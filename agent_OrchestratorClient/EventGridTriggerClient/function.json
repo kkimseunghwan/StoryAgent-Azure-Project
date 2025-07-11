@@ -1,0 +1,15 @@
+{
+  "scriptFile": "__init__.py",
+  "bindings": [
+    {
+      "name": "event",
+      "type": "eventGridTrigger",
+      "direction": "in"
+    },
+    {
+      "name": "starter",
+      "type": "durableClient",
+      "direction": "in"
+    }
+  ]
+}
