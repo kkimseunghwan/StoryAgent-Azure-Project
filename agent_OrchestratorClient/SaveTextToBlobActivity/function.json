@@ -1,0 +1,10 @@
+{
+  "scriptFile": "__init__.py",
+  "bindings": [
+    {
+      "name": "data_to_save",
+      "type": "activityTrigger",
+      "direction": "in"
+    }
+  ]
+}
