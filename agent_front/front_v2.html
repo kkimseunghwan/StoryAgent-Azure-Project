@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Remoria - 당신의 이야기를 영상으로</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/static/pretendard.min.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Pretendard', sans-serif;
+        }
+        .scroll-smooth {
+            scroll-behavior: smooth;
+        }
+        .fade-in {
+            animation: fadeIn 1s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 scroll-smooth">
+
+    <header class="bg-white/90 backdrop-blur-sm fixed top-0 left-0 right-0 z-50 shadow-md">
+        <div class="container mx-auto px-6 py-3 flex justify-between items-center">
+            <a href="#" class="text-3xl font-bold text-green-800">Remoria</a>
+            <nav class="hidden md:flex space-x-8 items-center">
+                <a href="#create" class="text-gray-600 hover:text-green-700 transition">이야기 생성</a>
+            </nav>
+            <button class="md:hidden text-gray-700">
+                <i class="fas fa-bars text-2xl"></i>
+            </button>
+        </div>
+    </header>
+
+    <main class="pt-16">
+        <section id="create" class="min-h-screen bg-green-50 flex items-center justify-center py-20 px-4 fade-in">
+            <div class="container mx-auto text-center">
+                <h2 class="text-4xl md:text-5xl font-bold text-green-900 mb-6">AI로 당신의 이야기를 영상으로</h2>
+                <p class="max-w-2xl mx-auto text-gray-600 mb-12">
+                    음성 녹음 파일이나 텍스트를 업로드하세요. <br> Remoria의 AI가 당신의 소중한 기억을 한 편의 단편 영상으로 만들어 드립니다.
+                </p>
+
+                <div class="bg-white max-w-3xl mx-auto p-8 rounded-2xl shadow-xl">
+                    <div id="upload-area" class="border-4 border-dashed border-gray-200 rounded-xl p-10 md:p-16 text-center cursor-pointer hover:border-green-400 hover:bg-green-50 transition">
+                        <input type="file" id="file-upload" class="hidden" multiple>
+                        <i class="fas fa-cloud-upload-alt text-6xl text-green-500 mb-4"></i>
+                        <h3 class="text-xl font-semibold text-gray-700">파일을 드래그하거나 여기를 클릭하세요</h3>
+                        <p class="text-gray-500 mt-2">MP3, WAV, TXT, DOCX 파일 지원</p>
+                    </div>
+                    <div id="file-list-container" class="hidden mt-6 text-left">
+                        <p class="font-semibold text-gray-700 mb-2">업로드된 파일:</p>
+                        <ul id="file-list"></ul>
+                    </div>
+                    <button id="generate-button" class="mt-8 w-full bg-green-700 text-white font-bold py-4 rounded-lg text-xl hover:bg-green-800 transition transform hover:scale-105 disabled:bg-gray-400 disabled:cursor-not-allowed" disabled>
+                        영상 생성 시작하기
+                    </button>
+                    <div id="loading-spinner" class="hidden mt-6">
+                        <i class="fas fa-spinner fa-spin text-4xl text-green-700"></i>
+                        <p id="loading-text" class="mt-2 text-gray-600">AI가 열심히 이야기를 만들고 있어요... (약 1분 소요)</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="bg-gray-800 text-white">
+        <div class="container mx-auto px-6 py-12 text-center">
+            <h3 class="text-2xl font-bold mb-2">Remoria</h3>
+            <p class="mb-6">기술로 세대와 공간을 잇습니다.</p>
+            <p class="text-gray-400 mb-2">문의: contact@remoria.io</p>
+            <p class="text-sm text-gray-500">
+                Team Dr.히루루크 | 2025 제7회 K-디지털 트레이닝 해커톤 출품작
+            </p>
+        </div>
+    </footer>
+
+    <script>
+        const uploadArea = document.getElementById('upload-area');
+        const fileUpload = document.getElementById('file-upload');
+        const fileListContainer = document.getElementById('file-list-container');
+        const fileList = document.getElementById('file-list');
+        const generateButton = document.getElementById('generate-button');
+        const loadingSpinner = document.getElementById('loading-spinner');
+        const loadingText = document.getElementById('loading-text');
+
+
+        const BACKEND_URL = "https://storyagent-token-api.azurewebsites.net"; // Azure 배포용
+        // const BACKEND_URL = "http://localhost:7071"; // 로컬 테스트 용
+
+
+        let uploadedFiles = []; // File 객체들을 저장할 배열
+
+        uploadArea.addEventListener('click', () => fileUpload.click());
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('border-green-400', 'bg-green-50');
+        });
+
+        uploadArea.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('border-green-400', 'bg-green-50');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('border-green-400', 'bg-green-50');
+            const files = e.dataTransfer.files;
+            handleFiles(files);
+        });
+
+        fileUpload.addEventListener('change', (e) => {
+            const files = e.target.files;
+            handleFiles(files);
+        });
+        
+        fileList.addEventListener('click', (e) => {
+            if (e.target.closest('.remove-file-btn')) {
+                const index = e.target.closest('.remove-file-btn').dataset.index;
+                uploadedFiles.splice(index, 1);
+                renderFileList();
+            }
+        });
+
+        function handleFiles(files) {
+            for (let file of files) {
+                uploadedFiles.push(file);
+            }
+            renderFileList();
+        }
+
+        function renderFileList() {
+            fileList.innerHTML = '';
+            if (uploadedFiles.length > 0) {
+                uploadedFiles.forEach((file, index) => {
+                    const listItem = document.createElement('li');
+                    listItem.className = 'flex items-center justify-between bg-gray-100 p-3 rounded-lg mt-2';
+                    listItem.innerHTML = `
+                        <span class="text-sm">${file.name}</span>
+                        <button class="remove-file-btn text-red-500 hover:text-red-700" data-index="${index}">
+                            <i class="fas fa-times-circle"></i>
+                        </button>
+                    `;
+                    fileList.appendChild(listItem);
+                });
+                fileListContainer.classList.remove('hidden');
+                uploadArea.classList.add('hidden');
+                generateButton.disabled = false;
+            } else {
+                fileListContainer.classList.add('hidden');
+                uploadArea.classList.remove('hidden');
+                generateButton.disabled = true;
+            }
+        }
+        
+        function resetUploadForm() {
+            uploadedFiles = [];
+            fileUpload.value = '';
+            renderFileList();
+            loadingSpinner.classList.add('hidden');
+            generateButton.classList.remove('hidden');
+            generateButton.disabled = true; // 버튼 비활성화
+        }
+
+        // '영상 생성 시작하기' 버튼 클릭 시 실행될 함수
+        generateButton.addEventListener('click', async () => {
+            if (uploadedFiles.length === 0) {
+                alert('파일을 먼저 업로드해주세요.');
+                return;
+            }
+
+            // UI를 로딩 상태로 변경
+            generateButton.classList.add('hidden');
+            loadingSpinner.classList.remove('hidden');
+            loadingText.textContent = 'Task ID를 발급받는 중...';
+
+            let jobTaskId;
+            
+            try {
+                const taskResponse = await fetch(`${BACKEND_URL}/task-id`, { method: 'POST' });
+                if (!taskResponse) {
+                    throw new Error('Task ID 발급에 실패했습니다.')
+                }
+
+                const { task_id } = await taskResponse.json();
+                jobTaskID = task_id
+
+                loadingText.textContent = `파일을 안전하게 업로드하는 중... (Task ID: ${task_id})`;
+
+
+                // 각 파일을 업로드하는 프로미스 배열 생성
+                const uploadPromises = uploadedFiles.map(async (file, index) => {
+                    // 1. 백엔드에 SAS URL 요청
+                    const sasResponse = await fetch(`${BACKEND_URL}/generate-upload-url`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            "filename": file.name, 
+                            "content_type": file.type, 
+                            "task_id": task_id 
+                        }),
+                    });
+
+                    if (!sasResponse.ok) {
+                        throw new Error(`[${file.name}] SAS URL 요청 실패`);
+                    }
+
+                    const { upload_url } = await sasResponse.json();
+            
+
+                    // 2. 받은 SAS URL로 Azure Blob Storage에 직접 파일 업로드 (PUT)
+                    const uploadResponse = await fetch(upload_url, {
+                        method: 'PUT',
+                        headers: {
+                            'x-ms-blob-type': 'BlockBlob',
+                            'Content-Type': file.type,
+                            'x-ms-meta-taskid': task_id
+                        },
+                        body: file,
+                    });
+
+                    if (!uploadResponse.ok) {
+                        throw new Error(`[${file.name}] Azure 업로드 실패`);
+                    }
+                    
+                    // 개별 파일 업로드 성공 시 UI 업데이트 (선택 사항)
+                    const listItem = fileList.querySelectorAll('li')[index];
+                    listItem.querySelector('span').textContent += ' - ✅ 완료';
+
+                    return { success: true, filename: file.name };
+                });
+
+                // 모든 파일이 업로드될 때까지 기다림
+                await Promise.all(uploadPromises);
+
+                // 3. 모든 파일 업로드 성공 후 처리
+                loadingText.textContent = '업로드 완료! 처리 시작 신호 보내는 중...';
+                
+                // 2. '_SUCCESS' 파일에 대한 SAS URL을 백엔드에 요청합니다.
+                const signalFileSasResponse = await fetch(`${BACKEND_URL}/generate-upload-url`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        "filename": "_SUCCESS", // 신호 파일 이름
+                        "content_type": "text/plain",
+                        "task_id": task_id
+                    }),
+                });
+                const { upload_url: signalUploadUrl } = await signalFileSasResponse.json();
+
+                // 3. 내용이 비어있는 신호 파일을 업로드합니다.
+                await fetch(signalUploadUrl, {
+                    method: 'PUT',
+                    headers: { 'x-ms-blob-type': 'BlockBlob' },
+                    body: new Blob(['done']), // 내용은 아무거나
+                });
+
+                loadingText.textContent = `AI가 이야기를 만들고 있어요... (Task ID: ${task_id})`;
+                
+
+                
+                
+                // 여기에 실제 AI 영상 생성 시작을 요청하는 백엔드 API를 호출할 수 있습니다.
+                // 예: await fetch(`${BACKEND_URL}/start-generation`, { method: 'POST', body: JSON.stringify({ task_id: firstTaskId }) });
+
+                // 지금은 시뮬레이션으로 완료를 알립니다.
+                setTimeout(() => {
+                    alert(`영상 생성이 완료되었습니다! (TaskID: ${task_id})`);
+                    resetUploadForm();
+                }, 3000);
+
+            } catch (error) {
+                // 4. 에러 처리
+                console.error('업로드 중 오류 발생:', error);
+                alert(`업로드 중 오류가 발생했습니다: ${error.message}`);
+                resetUploadForm(); // 오류 발생 시 폼 초기화
+            }
+        });
+    </script>
+</body>
+</html>

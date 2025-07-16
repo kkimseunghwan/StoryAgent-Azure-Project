@@ -31,15 +31,22 @@ CONTAINER_NAME = "request-files"
 #     return request
 
 
+# Task ID 생성
+@fast_app.post("/task-id")
+async def create_task_id():
+    # TODO: 동시 처리 시 id가 중복되는 경우가 있을 수 있으므로, 후에 중복 처리 로직 추가 필요
+    task_id = str(uuid.uuid4())
+    logging.info(f"Generated task id : {task_id}")
+    return {"task_id": task_id}
+         
+
 # SAS 토큰이 포함된 파일 업로드 URL을 생성하여 반환
 @fast_app.post("/generate-upload-url")
 async def generate_upload_url(request: FileUploadRequest):
     try:
         blob_service_client = BlobServiceClient.from_connection_string(AZURE_CONNECTION_STRING)
 
-        # TODO: 동시 처리 시 id가 중복되는 경우가 있을 수 있으므로, 후에 중복 처리 로직 추가 필요
-        task_id = str(uuid.uuid4())
-        blob_name = f"{task_id}/{request.filename}"
+        blob_name = f"{request.task_id}/{request.filename}"
 
         # SAS 토큰 생성 (10분 동안 유효, 쓰기 권한)
         sas_token = generate_blob_sas(
@@ -53,7 +60,7 @@ async def generate_upload_url(request: FileUploadRequest):
 
         upload_url = f"https://{blob_service_client.account_name}.blob.core.windows.net/{CONTAINER_NAME}/{blob_name}?{sas_token}"
 
-        return {"task_id": task_id, "upload_url": upload_url, "filename": request.filename}
+        return { "upload_url": upload_url }
 
     except Exception as e:
         return {"error": str(e)}, 500
